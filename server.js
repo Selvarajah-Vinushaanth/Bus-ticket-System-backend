@@ -13,7 +13,7 @@ const allowedOrigins = [
   'http://localhost:3000',        // Optional: for local dev
 ];
 
-app.use(cors({
+express.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (like Postman)
     if (!origin) return callback(null, true);
