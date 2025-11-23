@@ -12,8 +12,8 @@ const allowedOrigins = [
   'https://bus-ticket-portal.vercel.app/',  // Replace with your Vercel deployment URL
   'http://localhost:3000',        // Optional: for local dev
 ];
-
-express.use(cors({
+const app=express();
+app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (like Postman)
     if (!origin) return callback(null, true);
