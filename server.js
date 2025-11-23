@@ -8,8 +8,24 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-const app = express();
-app.use(cors());
+const allowedOrigins = [
+  'https://your-app.vercel.app',  // Replace with your Vercel deployment URL
+  'http://localhost:3000',        // Optional: for local dev
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,  // Allow cookies/auth headers
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
