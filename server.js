@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 const allowedOrigins = [
-  'https://your-app.vercel.app',  // Replace with your Vercel deployment URL
+  'https://bus-ticket-portal.vercel.app/',  // Replace with your Vercel deployment URL
   'http://localhost:3000',        // Optional: for local dev
 ];
 
