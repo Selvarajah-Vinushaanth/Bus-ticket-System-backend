@@ -2,11 +2,15 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
+const ChatAssistant = require('./services/chatAssistant');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 );
+
+// Initialize Chat Assistant
+const chatAssistant = new ChatAssistant(process.env.GEMINI_API_KEY, supabase);
 
 
 const app=express();
@@ -134,8 +138,10 @@ app.post('/api/login', async (req, res) => {
   const { data, error } = await supabase.from('conductors').select('*').eq('username', username).single();
   if (error || !data) return res.status(401).json({ error: 'Invalid credentials' });
 
-  // Simplified password check (same as before)
-  if (password !== 'admin123' && password !== 'password') return res.status(401).json({ error: 'Invalid credentials' });
+  // Check if password matches the one in database
+  if (data.password && password !== data.password) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
 
   res.json({
     id: data.id,
@@ -149,6 +155,108 @@ app.post('/api/login', async (req, res) => {
 // -------------------- Health --------------------
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server running' });
+});
+
+// -------------------- Chat Assistant --------------------
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { question } = req.body;
+    
+    if (!question || question.trim() === '') {
+      return res.status(400).json({ error: 'Question is required' });
+    }
+
+    const result = await chatAssistant.processQuestion(question);
+    res.json(result);
+  } catch (error) {
+    console.error('Chat endpoint error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
+});
+
+app.post('/api/chat/conversation', async (req, res) => {
+  try {
+    const { messages, conductorId, conductorRoute } = req.body;
+    
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Messages array is required' });
+    }
+
+    const result = await chatAssistant.processConversation(messages, conductorId, conductorRoute);
+    res.json(result);
+  } catch (error) {
+    console.error('Conversation endpoint error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
+});
+
+// Get chat history for a conductor
+app.get('/api/chat/history/:conductorId', async (req, res) => {
+  try {
+    const { conductorId } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    
+    const history = await chatAssistant.getChatHistory(parseInt(conductorId), limit);
+    res.json({ success: true, history });
+  } catch (error) {
+    console.error('Chat history endpoint error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
+});
+
+// Clear chat history for a conductor
+app.delete('/api/chat/history/:conductorId', async (req, res) => {
+  try {
+    const { conductorId } = req.params;
+    
+    const success = await chatAssistant.clearChatHistory(parseInt(conductorId));
+    
+    if (success) {
+      res.json({ success: true, message: 'Chat history cleared' });
+    } else {
+      res.status(500).json({ success: false, error: 'Failed to clear chat history' });
+    }
+  } catch (error) {
+    console.error('Clear chat history endpoint error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
+});
+
+// AI-powered ticket generation from natural language
+app.post('/api/tickets/generate', async (req, res) => {
+  try {
+    const { prompt, conductorId, conductorRoute } = req.body;
+    
+    if (!prompt || !conductorId) {
+      return res.status(400).json({ error: 'Prompt and conductorId are required' });
+    }
+
+    const result = await chatAssistant.generateTicketFromPrompt(prompt, conductorId, conductorRoute);
+    res.json(result);
+  } catch (error) {
+    console.error('AI ticket generation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
 });
 
 // -------------------- Start Server --------------------
